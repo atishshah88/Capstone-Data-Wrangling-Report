@@ -1,0 +1,99 @@
+---
+title: "Capstone Data Wrangling"
+author: "Atish Shah"
+date: "December 11, 2017"
+output:
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+This is markdown file to illustrate data wrangling for the Capstone project dataset. The dataset chosen for the project can be found [here](https://www.kaggle.com/benhamner/sf-bay-area-bike-share/data).
+
+```{r echo = FALSE}
+library(dplyr)
+library(tidyr)
+library(readr)
+```
+
+## Station Dataset
+The station dataset originally included the following columns:
+* id
+* name
+* lat
+* long
+* dock_count
+* installation_date
+
+Only the bike stations in San Francisco were retained. Bike stations for other bay area cities were removed. Zip codes for all the San Francisco stations have been added. Following code was ran to implement the required.
+
+```{r echo = FALSE}
+station <- read_csv("C:/Users/atish.shah/Dropbox/ATISH/Study&Work/Springboard/Capstone Project/SF Bike Share/Data/station.csv")
+trip <- read_csv("C:/Users/atish.shah/Dropbox/ATISH/Study&Work/Springboard/Capstone Project/SF Bike Share/Data/trip.csv")
+weather <- read_csv("C:/Users/atish.shah/Dropbox/ATISH/Study&Work/Springboard/Capstone Project/SF Bike Share/Data/weather.csv")
+zip_code <- station$name
+station1 <- station %>% mutate(zip_code) %>% filter(city == "San Francisco") %>% arrange(id) %>% separate(installation_date, c('station1_month', 'station1_date', 'station1_year'))
+station1$zip_code <- gsub(pattern = "San Francisco City Hall|Golden Gate at Polk|South Van Ness at Market|Market at 10th|Civic Center BART (7th at Market)|Market at 4th", replacement = 94102, station1$zip_code)
+station1$zip_code <- gsub(pattern = "Powell Street BART|5th at Howard|Townsend at 7th|Yerba Buena Center of the Arts (3rd @ Howard)", replacement = 94103, station1$zip_code)
+station1$zip_code <- gsub(pattern = "Market at Sansome|Mechanics Plaza (Market at Battery)", replacement = 94104, station1$zip_code)
+station1$zip_code <- gsub(pattern = "Washington at Kearney|Post at Kearney|Spear at Folsom|Embarcadero at Bryant|Temporary Transbay Terminal (Howard at Beale)|Howard at 2nd|Steuart at Market", replacement = 94105, station1$zip_code)
+station1$zip_code <- gsub(pattern = "2nd at Townsend|2nd at Folsom|2nd at South Park|San Francisco Caltrain 2 (330 Townsend)|San Francisco Caltrain (Townsend at 4th)", replacement = 94107, station1$zip_code)
+station1$zip_code <- gsub(pattern = "Powell at Post (Union Square)", replacement = 94108, station1$zip_code)
+station1$zip_code <- gsub(pattern = "Clay at Battery|Davis at Jackson|Commercial at Montgomery|Embarcadero at Vallejo|Harry Bridges Plaza (Ferry Building)|Embarcadero at Folsom|Beale at Market|Embarcadero at Sansome|Broadway St at Battery St", replacement = 94111, station1$zip_code)
+station1$zip_code <- gsub(pattern = "Grant Avenue at Columbus Avenue", replacement = 94133, station1$zip_code)
+station1 <- station1 %>% rename(station1_id = id) %>% rename(station1_name = name) %>% rename(station1_lat = lat) %>% rename(station1_long = long) %>% rename(station1_dock_count = dock_count) %>% rename(station1_city = city) %>% rename(station1_zip_code = zip_code)
+```
+
+
+## Trips Dataset
+The trips dataset includes log of all the trips that were taken from one station to the other. For each trip the following parameters are incuded in the dataset:
+
+* Id - unique trip identifier
+* Duration - bike ride duration from one station to another in seconds
+* start_date - bike ride start date
+* start_station_name - bike station where the bike was embarked
+* start_station_id - unique identifier for a bike station
+* end_date - bike ride end date
+* end_station_name - bike station where the bike was disembarked
+* end_station_id - unique identifier for a bike station
+* bike_id - unique identifier for a bike
+* subscription_type - shows whether the rider is a subscriber or a one-time customer
+* zip_code - zip code of the subscriber/customer
+
+From the above dataset, only the San Francisco trips were retained. The start_date column was seprarated into 5 separate columns, namely:
+* start_month
+* start_date
+* start_year
+* start_hour
+* start_minute
+
+Similarly, the end_date columns was split into (5) separate columns. 
+
+Since only the San Francisco data will be analyzed, the weather data was filtered to retain only the San Francisco data corresponding to zip code 94107. The weather data was mutated/added to the trips dataset. The weather data consists of daily weather parameters. There is no hourly weather data. Therefore, all the trips occuring on any given day have identical weather.
+
+Zip codes for the start and the end stations have also been added. So are the longitude and latitudes from the station dataset have been added to the trip data for the start and the end stations.
+
+```{r echo = FALSE}
+new_data1 <- data_frame(start_station_name = station1$station1_name, start_station_zip = station1$station1_zip_code)
+new_data2 <- data_frame(end_station_name = station1$station1_name, end_station_zip = station1$station1_zip_code)
+new_data3 <- data_frame(start_station_name = station1$station1_name, start_station_lat = station1$station1_lat)
+new_data4 <- data_frame(start_station_name = station1$station1_name, start_station_long = station1$station1_long)
+new_data5 <- data_frame(end_station_name = station1$station1_name, end_station_lat = station1$station1_lat)
+new_data6 <- data_frame(end_station_name = station1$station1_name, end_station_long = station1$station1_long)
+
+trip1 <- trip %>% filter(start_station_id >= 39 & start_station_id <= 82 & start_station_id != 80)
+trip1 <- trip1 %>% separate(start_date, c("start_month", "start_date", "start_year", "start_hour", "start_minute")) %>% separate(end_date, c("end_month", "end_date", "end_year", "end_hour", "end_minute"))
+weather1 <- weather %>% filter(zip_code == 94107) %>% separate(date, c("start_month", "start_date", "start_year"))
+trip1 <- left_join(trip1, weather1, by = c("start_month", "start_date", "start_year"))
+trip1 <- trip1 %>% left_join(new_data1, by = "start_station_name") %>% left_join(new_data3, by = "start_station_name") %>% left_join(new_data4, by = "start_station_name")
+trip1 <- trip1 %>% left_join(new_data2, by = "end_station_name") %>% left_join(new_data5, by = "end_station_name") %>% left_join(new_data6, by = "end_station_name") %>% left_join(new_data2, by = "end_station_name")
+```
+
+The final "trips" dataset looks like this:
+```{r echo = FALSE}
+head(trip1)
+```
